@@ -87,8 +87,13 @@ class ACMOJClient:
         except Exception as e:
             print(f"⚠️ Warning: Failed to save submission ID: {e}")
 
-    def submit_git(self, problem_id: int, git_url: str) -> Optional[Dict]:
-        data = {"language": "git", "code": git_url}
+    def submit_git(self, problem_id: int, git_url: str, source_file: Optional[str] = None) -> Optional[Dict]:
+        # Some adapted problems consume the code field as a header even in Git mode.
+        code = git_url
+        if source_file is not None:
+            with open(source_file, encoding="utf-8") as source:
+                code = source.read()
+        data = {"language": "git", "code": code}
         result = self._make_request("POST", f"/problem/{problem_id}/submit", data=data)
         if result and 'id' in result:
             self._save_submission_id(result['id'])
@@ -113,6 +118,7 @@ def main():
     submit_parser = subparsers.add_parser("submit", help="Submit Git repository")
     submit_parser.add_argument("--problem-id", type=int, required=True, help="Problem ID")
     submit_parser.add_argument("--git-url", type=str, required=True, help="Git repository URL")
+    submit_parser.add_argument("--source-file", help="Send source contents for header-based adapted judges")
 
     # Sub-command for checking submission status
     status_parser = subparsers.add_parser("status", help="Check submission status")
@@ -131,7 +137,7 @@ def main():
     client = ACMOJClient(args.token)
 
     if args.command == "submit":
-        result = client.submit_git(args.problem_id, args.git_url)
+        result = client.submit_git(args.problem_id, args.git_url, args.source_file)
     elif args.command == "status":
         result = client.get_submission_detail(args.submission_id)
     elif args.command == "abort":
